@@ -1,9 +1,7 @@
 name: Build Binaries
 
 on:
-  pull_request:
-    branches:
-      - '*'
+  workflow_dispatch:
 
 env:
   GO_VERSION: '1.22'
