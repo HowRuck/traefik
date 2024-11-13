@@ -130,7 +130,7 @@ which in turn will create the resulting routers, services, handlers, etc.
           serviceAccountName: traefik-ingress-controller
           containers:
             - name: traefik
-              image: traefik:v3.1
+              image: traefik:v3.2
               args:
                 - --entryPoints.web.address=:80
                 - --providers.kubernetesingress
@@ -383,6 +383,14 @@ which in turn will create the resulting routers, services, handlers, etc.
     traefik.ingress.kubernetes.io/service.sticky.cookie.maxage: 42
     ```
 
+??? info "`traefik.ingress.kubernetes.io/service.sticky.cookie.path`"
+
+    See [sticky sessions](../services/index.md#sticky-sessions) for more information.
+
+    ```yaml
+    traefik.ingress.kubernetes.io/service.sticky.cookie.path: /foobar
+    ```
+
 ## Path Types on Kubernetes 1.18+
 
 If the Kubernetes cluster version is 1.18+,
@@ -543,7 +551,7 @@ This way, any Ingress attached to this Entrypoint will have TLS termination by d
           serviceAccountName: traefik-ingress-controller
           containers:
             - name: traefik
-              image: traefik:v3.1
+              image: traefik:v3.2
               args:
                 - --entryPoints.websecure.address=:443
                 - --entryPoints.websecure.http.tls
@@ -736,7 +744,7 @@ For more options, please refer to the available [annotations](#on-ingress).
           serviceAccountName: traefik-ingress-controller
           containers:
             - name: traefik
-              image: traefik:v3.1
+              image: traefik:v3.2
               args:
                 - --entryPoints.websecure.address=:443
                 - --providers.kubernetesingress

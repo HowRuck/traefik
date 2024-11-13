@@ -37,6 +37,8 @@ import (
 	"github.com/traefik/traefik/v3/pkg/provider/aggregator"
 	"github.com/traefik/traefik/v3/pkg/provider/tailscale"
 	"github.com/traefik/traefik/v3/pkg/provider/traefik"
+	"github.com/traefik/traefik/v3/pkg/proxy"
+	"github.com/traefik/traefik/v3/pkg/proxy/httputil"
 	"github.com/traefik/traefik/v3/pkg/safe"
 	"github.com/traefik/traefik/v3/pkg/server"
 	"github.com/traefik/traefik/v3/pkg/server/middleware"
@@ -236,6 +238,9 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 	}
 
 	pluginBuilder, err := createPluginBuilder(staticConfiguration)
+	if err != nil && staticConfiguration.Experimental != nil && staticConfiguration.Experimental.AbortOnPluginFailure {
+		return nil, fmt.Errorf("plugin: failed to create plugin builder: %w", err)
+	}
 	if err != nil {
 		pluginLogger.Err(err).Msg("Plugins are disabled because an error has occurred.")
 	} else if hasPlugins {
@@ -281,10 +286,16 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 		log.Info().Msg("Successfully obtained SPIFFE SVID.")
 	}
 
-	roundTripperManager := service.NewRoundTripperManager(spiffeX509Source)
+	transportManager := service.NewTransportManager(spiffeX509Source)
+
+	var proxyBuilder service.ProxyBuilder = httputil.NewProxyBuilder(transportManager, semConvMetricRegistry)
+	if staticConfiguration.Experimental != nil && staticConfiguration.Experimental.FastProxy != nil {
+		proxyBuilder = proxy.NewSmartBuilder(transportManager, proxyBuilder, *staticConfiguration.Experimental.FastProxy)
+	}
+
 	dialerManager := tcp.NewDialerManager(spiffeX509Source)
 	acmeHTTPHandler := getHTTPChallengeHandler(acmeProviders, httpChallengeProvider)
-	managerFactory := service.NewManagerFactory(*staticConfiguration, routinesPool, observabilityMgr, roundTripperManager, acmeHTTPHandler)
+	managerFactory := service.NewManagerFactory(*staticConfiguration, routinesPool, observabilityMgr, transportManager, proxyBuilder, acmeHTTPHandler)
 
 	// Router factory
 
@@ -318,7 +329,8 @@ func setupServer(staticConfiguration *static.Configuration) (*server.Server, err
 
 	// Server Transports
 	watcher.AddListener(func(conf dynamic.Configuration) {
-		roundTripperManager.Update(conf.HTTP.ServersTransports)
+		transportManager.Update(conf.HTTP.ServersTransports)
+		proxyBuilder.Update(conf.HTTP.ServersTransports)
 		dialerManager.Update(conf.TCP.ServersTransports)
 	})
 
